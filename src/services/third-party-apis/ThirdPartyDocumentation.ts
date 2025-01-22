@@ -1,41 +1,38 @@
-
-
 export class ThirdPartyDocumentation {
-
 	async getOpenaiDocumentation(languageType: string): Promise<any> {
 		try {
 			switch (languageType) {
-                case "python":
-                    return this.getOpenaiPythonDocumentation();
-                case "typescript":
-                    return this.getOpenaiTypescriptDocumentation();
-                    
-                default:
-                    throw new Error(`Unsupported language type: ${languageType}`)
-            }
+				case "python":
+					return this.getOpenaiPythonDocumentation()
+				case "typescript":
+					return this.getOpenaiTypescriptDocumentation()
+
+				default:
+					throw new Error(`Unsupported language type: ${languageType}`)
+			}
 		} catch (error) {
 			throw error
 		}
 	}
 
-    async getStripeDocumentation(languageType: string): Promise<any> {
-        try {
-            switch (languageType) {
-                case "python":
-                    return this.getStripePythonDocumentation();
-                case "typescript":
-                    return this.getStripeTypescriptDocumentation();
-                    
-                default:
-                    throw new Error(`Unsupported language type: ${languageType}`)
-            }   
-        } catch (error) {
-            throw error
-        }
-    }
+	async getStripeDocumentation(languageType: string): Promise<any> {
+		try {
+			switch (languageType) {
+				case "python":
+					return this.getStripePythonDocumentation()
+				case "typescript":
+					return this.getStripeTypescriptDocumentation()
 
-    async getOpenaiPythonDocumentation(): Promise<any> {
-        return `
+				default:
+					throw new Error(`Unsupported language type: ${languageType}`)
+			}
+		} catch (error) {
+			throw error
+		}
+	}
+
+	async getOpenaiPythonDocumentation(): Promise<any> {
+		return `
 Here's documentation on how to use openai apis:
 
 1. Import the package:
@@ -64,18 +61,18 @@ response = openAIWrapper.generate_response(
 print(response)
 \`\`\`
 
-The package provides a simplified interface to OpenAI's API with automatic retries and error handling.`;
-    }
+The package provides a simplified interface to OpenAI's API with automatic retries and error handling.`
+	}
 
-    async getOpenaiTypescriptDocumentation(): Promise<any> {
-        return '';
-    }
+	async getOpenaiTypescriptDocumentation(): Promise<any> {
+		return ""
+	}
 
-    async getStripePythonDocumentation(): Promise<any> {
-        return '';
-    }
+	async getStripePythonDocumentation(): Promise<any> {
+		return ""
+	}
 
-    async getStripeTypescriptDocumentation(): Promise<any> {
-        return '';
-    }
+	async getStripeTypescriptDocumentation(): Promise<any> {
+		return ""
+	}
 }

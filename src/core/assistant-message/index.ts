@@ -24,7 +24,7 @@ export const toolUseNames = [
 	"attempt_completion",
 	"fetch_user_stories",
 	"fetch_technical_design",
-	"read_openai_documentation"
+	"read_openai_documentation",
 ] as const
 
 // Converts array of tool call names into a union type ("execute_command" | "read_file" | ...)
@@ -51,7 +51,7 @@ export const toolParamNames = [
 	"response",
 	"result",
 	"project_name",
-	"language_type"
+	"language_type",
 ] as const
 
 export type ToolParamName = (typeof toolParamNames)[number]
