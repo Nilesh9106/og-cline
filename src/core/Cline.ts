@@ -59,6 +59,7 @@ import { SYSTEM_PROMPT } from "./prompts/system"
 import { addUserInstructions } from "./prompts/system"
 import { OpenAiHandler } from "../api/providers/openai"
 import { OgTools } from "./tools/og-tools"
+import { ThirdPartyDocumentation } from "../services/third-party-apis/ThirdPartyDocumentation"
 import { DirectoryTreeService } from "../services/directory-structure"
 import { ApiStream } from "../api/transform/stream"
 
@@ -1195,6 +1196,8 @@ export class Cline {
 				case "fetch_user_stories":
 				case "fetch_technical_design":
 					return true
+				case "read_openai_documentation":
+					return true
 			}
 		}
 		return false
@@ -1444,6 +1447,8 @@ export class Cline {
 							return `[${block.name} for '${block.params.project_name}']`
 						case "fetch_technical_design":
 							return `[${block.name} for '${block.params.project_name}']`
+						case "read_openai_documentation":
+							return `[${block.name} for '${block.params.language_type}']`
 					}
 				}
 
@@ -2900,6 +2905,51 @@ export class Cline {
 							}
 						} catch (error) {
 							await handleError("fetching technical design", error)
+							await this.saveCheckpoint()
+							break
+						}
+					}
+					case "read_openai_documentation": {
+						const languageType: string | undefined = block.params.language_type
+						try {
+							if (block.partial) {
+								const partialMessage = JSON.stringify({
+									tool: "ThirdPartyTool",
+								})
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", partialMessage, undefined, block.partial)
+								} else {
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									await this.ask("tool", partialMessage, block.partial).catch(() => {})
+								}
+								break
+							} else {
+								this.consecutiveMistakeCount = 0
+
+								const completeMessage = JSON.stringify({
+									tool: "ThirdPartyTool",
+								})
+
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", completeMessage, undefined, false)
+									this.consecutiveAutoApprovedRequestsCount++
+								}
+
+								const thirdPartyDocumentation = new ThirdPartyDocumentation()
+								const result = await thirdPartyDocumentation.getOpenaiDocumentation(languageType || "")
+
+								if (result) {
+									pushToolResult(result)
+								} else {
+									pushToolResult(`Error getting openai documentation: ${result.error}`)
+								}
+								await this.saveCheckpoint()
+								break
+							}
+						} catch (error) {
+							await handleError("Error getting third party api", error)
 							await this.saveCheckpoint()
 							break
 						}

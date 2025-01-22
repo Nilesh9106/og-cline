@@ -113,6 +113,7 @@ export interface ClineSayTool {
 		| "listFilesRecursive"
 		| "listCodeDefinitionNames"
 		| "searchFiles"
+		| "readDocumentation"
 	path?: string
 	diff?: string
 	content?: string
