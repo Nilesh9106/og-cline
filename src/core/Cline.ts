@@ -1280,28 +1280,22 @@ export class Cline {
 			try {
 				const ruleFileContent = (await fs.readFile(clineRulesFilePath, "utf8")).trim()
 				if (ruleFileContent) {
-					clineRulesFileInstructions = `# .clinerules\n\nThe following is provided by a root-level .clinerules file where the user has specified instructions for this working directory (${cwd.toPosix()})\n\n${ruleFileContent}`
+					clineRulesFileInstructions = `# .ogrules\n\nThe following is provided by a root-level .ogrules file where the user has specified instructions for this working directory (${cwd.toPosix()})\n\n${ruleFileContent}`
 				}
 			} catch {
-				console.error(`Failed to read .clinerules file at ${clineRulesFilePath}`)
+				console.error(`Failed to read .ogrules file at ${clineRulesFilePath}`)
 			}
 		}
 
 		const clineIgnoreContent = this.clineIgnoreController.clineIgnoreContent
 		let clineIgnoreInstructions: string | undefined
 		if (clineIgnoreContent) {
-			clineIgnoreInstructions = `# .clineignore\n\n(The following is provided by a root-level .clineignore file where the user has specified files and directories that should not be accessed. When using list_files, you'll notice a ${LOCK_TEXT_SYMBOL} next to files that are blocked. Attempting to access the file's contents e.g. through read_file will result in an error.)\n\n${clineIgnoreContent}\n.clineignore`
+			clineIgnoreInstructions = `# .ogignore\n\n(The following is provided by a root-level .ogignore file where the user has specified files and directories that should not be accessed. When using list_files, you'll notice a ${LOCK_TEXT_SYMBOL} next to files that are blocked. Attempting to access the file's contents e.g. through read_file will result in an error.)\n\n${clineIgnoreContent}\n.ogignore`
 		}
 
 		if (settingsCustomInstructions || clineRulesFileInstructions) {
 			// altering the system prompt mid-task will break the prompt cache, but in the grand scheme this will not change often so it's better to not pollute user messages with it the way we have to with <potentially relevant details>
-			systemPrompt += addUserInstructions(settingsCustomInstructions, clineRulesFileInstructions)
-		}
-
-		if (this.addDirectoryStructureToPrompt && !systemPrompt.includes("<directory_structure>")) {
-			const directoryTree = new DirectoryTreeService()
-			const directoryStructure = directoryTree.getDirectoryStructure(cwd)
-			systemPrompt += `\n\n<directory_structure>\n${directoryStructure}\n</directory_structure>`
+			systemPrompt += addUserInstructions(settingsCustomInstructions, clineRulesFileInstructions, clineIgnoreInstructions)
 		}
 
 		// If the previous API request's total token usage is close to the context window, truncate the conversation history to free up space for the new request

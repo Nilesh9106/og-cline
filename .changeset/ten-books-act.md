@@ -2,4 +2,4 @@
 "claude-dev": minor
 ---
 
-Adding .clineignore guide
+Adding .ogignore guide

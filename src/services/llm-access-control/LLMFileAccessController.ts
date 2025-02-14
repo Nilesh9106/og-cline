@@ -6,7 +6,7 @@ import ignore, { Ignore } from "ignore"
 /**
  * Controls LLM access to files by enforcing ignore patterns.
  * Designed to be instantiated once in Cline.ts and passed to file manipulation services.
- * Uses the 'ignore' library to support standard .gitignore syntax in .clineignore files.
+ * Uses the 'ignore' library to support standard .gitignore syntax in .ogignore files.
  */
 export class LLMFileAccessController {
 	private cwd: string
@@ -34,11 +34,11 @@ export class LLMFileAccessController {
 	}
 
 	/**
-	 * Load custom patterns from .clineignore if it exists
+	 * Load custom patterns from .ogignore if it exists
 	 */
 	private async loadCustomPatterns(): Promise<void> {
 		try {
-			const ignorePath = path.join(this.cwd, ".clineignore")
+			const ignorePath = path.join(this.cwd, ".ogignore")
 			if (await fileExistsAtPath(ignorePath)) {
 				const content = await fs.readFile(ignorePath, "utf8")
 				const customPatterns = content
@@ -49,7 +49,7 @@ export class LLMFileAccessController {
 				this.ignoreInstance.add(customPatterns)
 			}
 		} catch (error) {
-			console.error("Failed to load .clineignore:", error)
+			console.error("Failed to load .ogignore:", error)
 			// Continue with default patterns
 		}
 	}

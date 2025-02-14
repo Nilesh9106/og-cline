@@ -23,19 +23,19 @@ Custom instructions are powerful for:
 
 **The `custom-instructions` folder contains examples of custom instructions you can use or adapt.**
 
-## .clinerules File 📋
+## .ogrules File 📋
 
-While custom instructions are user-specific and global (applying across all projects), the `.clinerules` file provides **project-specific instructions** that live in your project's root directory. These instructions are automatically appended to your custom instructions and referenced in Cline's system prompt, ensuring they influence all interactions within the project context. This makes it an excellent tool for:
+While custom instructions are user-specific and global (applying across all projects), the `.ogrules` file provides **project-specific instructions** that live in your project's root directory. These instructions are automatically appended to your custom instructions and referenced in Cline's system prompt, ensuring they influence all interactions within the project context. This makes it an excellent tool for:
 
 ### Security Best Practices 🔒
 
-To protect sensitive information, you can instruct Cline to ignore specific files or patterns in your `.clinerules`. This is particularly important for:
+To protect sensitive information, you can instruct Cline to ignore specific files or patterns in your `.ogrules`. This is particularly important for:
 
 -   `.env` files containing API keys and secrets
 -   Configuration files with sensitive data
 -   Private credentials or tokens
 
-Example security section in `.clinerules`:
+Example security section in `.ogrules`:
 
 ```markdown
 # Security
@@ -58,7 +58,7 @@ DO NOT read or modify:
 
 ### General Use Cases
 
-The `.clinerules` file is excellent for:
+The `.ogrules` file is excellent for:
 
 -   Maintaining project standards across team members
 -   Enforcing development practices
@@ -66,7 +66,7 @@ The `.clinerules` file is excellent for:
 -   Setting up analysis frameworks
 -   Defining project-specific behaviors
 
-### Example .clinerules Structure
+### Example .ogrules Structure
 
 ```markdown
 # Project Guidelines
@@ -105,16 +105,16 @@ Create ADRs in /docs/adr for:
 
 ### Key Benefits
 
-1. **Version Controlled**: The `.clinerules` file becomes part of your project's source code
+1. **Version Controlled**: The `.ogrules` file becomes part of your project's source code
 2. **Team Consistency**: Ensures consistent behavior across all team members
 3. **Project-Specific**: Rules and standards tailored to each project's needs
 4. **Institutional Knowledge**: Maintains project standards and practices in code
 
-Place the `.clinerules` file in your project's root directory:
+Place the `.ogrules` file in your project's root directory:
 
 ```
 your-project/
-├── .clinerules
+├── .ogrules
 ├── src/
 ├── docs/
 └── ...

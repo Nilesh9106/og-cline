@@ -132,7 +132,7 @@ Usage:
 
 ## fetch_user_stories
 Description: Request to fetch user stories for a specific project. This tool retrieves all user stories including their titles, descriptions, acceptance criteria, status, and priority.
-If project name is not provided then fetch from .clinerules(if exists) or tell user to provide project name.
+If project name is not provided then fetch from .ogrules(if exists) or tell user to provide project name.
 if user stories not found or gives error then tell user that user stories not found.
 Parameters:
 - project_name: (required) The name of the project to fetch user stories for

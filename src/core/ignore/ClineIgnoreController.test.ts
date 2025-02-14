@@ -14,9 +14,9 @@ describe("ClineIgnoreController", () => {
 		tempDir = path.join(os.tmpdir(), `llm-test-${Date.now()}-${Math.random().toString(36).slice(2)}`)
 		await fs.mkdir(tempDir)
 
-		// Create default .clineignore file
+		// Create default .ogignore file
 		await fs.writeFile(
-			path.join(tempDir, ".clineignore"),
+			path.join(tempDir, ".ogignore"),
 			[".env", "*.secret", "private/", "# This is a comment", "", "temp.*", "file-with-space-at-end.* ", "**/.git/**"].join(
 				"\n",
 			),
@@ -50,8 +50,8 @@ describe("ClineIgnoreController", () => {
 			results.forEach((result) => result.should.be.true())
 		})
 
-		it("should block access to .clineignore file", async () => {
-			const result = controller.validateAccess(".clineignore")
+		it("should block access to .ogignore file", async () => {
+			const result = controller.validateAccess(".ogignore")
 			result.should.be.false()
 		})
 	})
@@ -81,7 +81,7 @@ describe("ClineIgnoreController", () => {
 
 		it("should handle pattern edge cases", async () => {
 			await fs.writeFile(
-				path.join(tempDir, ".clineignore"),
+				path.join(tempDir, ".ogignore"),
 				["*.secret", "private/", "*.tmp", "data-*.json", "temp/*"].join("\n"),
 			)
 
@@ -103,7 +103,7 @@ describe("ClineIgnoreController", () => {
 
 		// it("should handle negation patterns", async () => {
 		// 	await fs.writeFile(
-		// 		path.join(tempDir, ".clineignore"),
+		// 		path.join(tempDir, ".ogignore"),
 		// 		[
 		// 			"temp/*", // Ignore everything in temp
 		// 			"!temp/allowed/*", // But allow files in temp/allowed
@@ -148,12 +148,9 @@ describe("ClineIgnoreController", () => {
 		// 	results[9].should.be.true() // assets/public/data.json
 		// })
 
-		it("should handle comments in .clineignore", async () => {
-			// Create a new .clineignore with comments
-			await fs.writeFile(
-				path.join(tempDir, ".clineignore"),
-				["# Comment line", "*.secret", "private/", "temp.*"].join("\n"),
-			)
+		it("should handle comments in .ogignore", async () => {
+			// Create a new .ogignore with comments
+			await fs.writeFile(path.join(tempDir, ".ogignore"), ["# Comment line", "*.secret", "private/", "temp.*"].join("\n"))
 
 			controller = new ClineIgnoreController(tempDir)
 			await controller.initialize()
@@ -217,8 +214,8 @@ describe("ClineIgnoreController", () => {
 			result.should.be.true()
 		})
 
-		it("should handle missing .clineignore gracefully", async () => {
-			// Create a new controller in a directory without .clineignore
+		it("should handle missing .ogignore gracefully", async () => {
+			// Create a new controller in a directory without .ogignore
 			const emptyDir = path.join(os.tmpdir(), `llm-test-empty-${Date.now()}`)
 			await fs.mkdir(emptyDir)
 
@@ -232,8 +229,8 @@ describe("ClineIgnoreController", () => {
 			}
 		})
 
-		it("should handle empty .clineignore", async () => {
-			await fs.writeFile(path.join(tempDir, ".clineignore"), "")
+		it("should handle empty .ogignore", async () => {
+			await fs.writeFile(path.join(tempDir, ".ogignore"), "")
 
 			controller = new ClineIgnoreController(tempDir)
 			await controller.initialize()

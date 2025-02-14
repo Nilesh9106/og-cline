@@ -7,7 +7,7 @@
 
 ## [3.3.0]
 
--   Add .clineignore to block Cline from accessing specified file patterns
+-   Add .ogignore to block Cline from accessing specified file patterns
 -   Add keyboard shortcut + tooltips for Plan/Act toggle
 -   Fix bug where new files won't show up in files dropdown
 -   Add automatic retry for rate limited requests (thanks @ViezeVingertjes!)
@@ -149,7 +149,7 @@
 -   Cline now uses a search & replace diff based approach when editing large files to prevent code deletion issues.
 -   Adds support for a more comprehensive auto-approve configuration, allowing you to specify which tools require approval and which don't.
 -   Adds ability to enable system notifications for when Cline needs approval or completes a task.
--   Adds support for a root-level `.clinerules` file that can be used to specify custom instructions for the project.
+-   Adds support for a root-level `.ogrules` file that can be used to specify custom instructions for the project.
 
 ## [2.2.0]
 
