@@ -188,4 +188,25 @@ export class AnthropicHandler implements ApiHandler {
 			info: anthropicModels[anthropicDefaultModelId],
 		}
 	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const response = await this.client.messages.create({
+				model: this.getModel().id,
+				max_tokens: this.getModel().info.maxTokens || 8192,
+				messages: [{ role: "user", content: prompt }],
+				stream: false,
+			})
+
+			const content = response.content[0]
+			if (content.type === "text") {
+				return content.text
+			}
+			return ""
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`Anthropic completion error: ${error.message}`)
+			}
+			throw error
+		}
+	}
 }

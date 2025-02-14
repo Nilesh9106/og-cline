@@ -45,6 +45,7 @@ export interface WebviewMessage {
 		| "accountLogoutClicked"
 		| "subscribeEmail"
 		| "importFigma"
+		| "enhancePrompt"
 	// | "relaunchChromeDebugMode"
 	text?: string
 	disabled?: boolean

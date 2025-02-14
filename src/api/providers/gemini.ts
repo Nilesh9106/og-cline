@@ -58,4 +58,23 @@ export class GeminiHandler implements ApiHandler {
 			info: geminiModels[geminiDefaultModelId],
 		}
 	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const model = this.client.getGenerativeModel({
+				model: this.getModel().id,
+			})
+
+			const result = await model.generateContent({
+				contents: [{ role: "user", parts: [{ text: prompt }] }],
+				generationConfig: {},
+			})
+
+			return result.response.text()
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`Gemini completion error: ${error.message}`)
+			}
+			throw error
+		}
+	}
 }

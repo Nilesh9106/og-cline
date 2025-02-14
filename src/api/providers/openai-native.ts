@@ -115,4 +115,56 @@ export class OpenAiNativeHandler implements ApiHandler {
 			info: openAiNativeModels[openAiNativeDefaultModelId],
 		}
 	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const modelId = this.getModel().id
+			let requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
+
+			if (modelId.startsWith("o1")) {
+				requestOptions = this.getO1CompletionOptions(modelId, prompt)
+			} else if (modelId.startsWith("o3-mini")) {
+				requestOptions = this.getO3CompletionOptions(modelId, prompt)
+			} else {
+				requestOptions = this.getDefaultCompletionOptions(modelId, prompt)
+			}
+
+			const response = await this.client.chat.completions.create(requestOptions)
+			return response.choices[0]?.message.content || ""
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`OpenAI Native completion error: ${error.message}`)
+			}
+			throw error
+		}
+	}
+
+	private getO1CompletionOptions(
+		modelId: string,
+		prompt: string,
+	): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming {
+		return {
+			model: modelId,
+			messages: [{ role: "user", content: prompt }],
+		}
+	}
+
+	private getO3CompletionOptions(
+		modelId: string,
+		prompt: string,
+	): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming {
+		return {
+			model: "o3-mini",
+			messages: [{ role: "user", content: prompt }],
+		}
+	}
+
+	private getDefaultCompletionOptions(
+		modelId: string,
+		prompt: string,
+	): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming {
+		return {
+			model: modelId,
+			messages: [{ role: "user", content: prompt }],
+		}
+	}
 }

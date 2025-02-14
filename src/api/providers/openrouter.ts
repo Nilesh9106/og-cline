@@ -242,4 +242,26 @@ export class OpenRouterHandler implements ApiHandler {
 		}
 		return { id: openRouterDefaultModelId, info: openRouterDefaultModelInfo }
 	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const response = await this.client.chat.completions.create({
+				model: this.getModel().id,
+				messages: [{ role: "user", content: prompt }],
+				stream: false,
+			})
+
+			if ("error" in response) {
+				const error = response.error as { message?: string; code?: number }
+				throw new Error(`OpenRouter API Error ${error?.code}: ${error?.message}`)
+			}
+
+			const completion = response as OpenAI.Chat.ChatCompletion
+			return completion.choices[0]?.message?.content || ""
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`OpenRouter completion error: ${error.message}`)
+			}
+			throw error
+		}
+	}
 }

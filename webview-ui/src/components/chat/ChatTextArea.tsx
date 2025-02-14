@@ -234,6 +234,7 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 		const buttonRef = useRef<HTMLDivElement>(null)
 		const [arrowPosition, setArrowPosition] = useState(0)
 		const [menuPosition, setMenuPosition] = useState(0)
+		const [isEnhancingPrompt, setIsEnhancingPrompt] = useState(false)
 
 		const [, metaKeyChar] = useMetaKeyDetection(platform)
 
@@ -749,6 +750,38 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 			}
 		}, [showModelSelector])
 
+		const handleEnhancePrompt = useCallback(() => {
+			if (!textAreaDisabled) {
+				const trimmedInput = inputValue.trim()
+				if (trimmedInput) {
+					setIsEnhancingPrompt(true)
+					const message = {
+						type: "enhancePrompt" as const,
+						text: trimmedInput,
+					}
+					vscode.postMessage(message)
+				} else {
+					const promptDescription =
+						"The 'Enhance Prompt' button helps improve your prompt by providing additional context, clarification, or rephrasing. Try typing a prompt in here and clicking the button again to see how it works."
+					setInputValue(promptDescription)
+				}
+			}
+		}, [inputValue, textAreaDisabled, setInputValue])
+
+		useEffect(() => {
+			const messageHandler = (event: MessageEvent) => {
+				const message = event.data
+				if (message.type === "enhancedPrompt") {
+					if (message.text) {
+						setInputValue(message.text)
+					}
+					setIsEnhancingPrompt(false)
+				}
+			}
+			window.addEventListener("message", messageHandler)
+			return () => window.removeEventListener("message", messageHandler)
+		}, [setInputValue])
+
 		/**
 		 * Handles the drag over event to allow dropping.
 		 * Prevents the default behavior to enable drop.
@@ -1065,6 +1098,19 @@ const ChatTextArea = forwardRef<HTMLTextAreaElement, ChatTextAreaProps>(
 							style={{ padding: "0px 0px", height: "20px" }}>
 							<ButtonContainer>
 								<span className="codicon codicon-type-hierarchy" style={{ fontSize: "14px", marginBottom: -3 }} />
+							</ButtonContainer>
+						</VSCodeButton>
+						<VSCodeButton
+							data-testid="enhance-prompt-button"
+							appearance="icon"
+							aria-label="Import from Figma"
+							disabled={isEnhancingPrompt}
+							onClick={() => {
+								!textAreaDisabled && handleEnhancePrompt()
+							}}
+							style={{ padding: "0px 0px", height: "20px" }}>
+							<ButtonContainer>
+								<span className="codicon codicon-sparkle" style={{ fontSize: "14px", marginBottom: -3 }} />
 							</ButtonContainer>
 						</VSCodeButton>
 

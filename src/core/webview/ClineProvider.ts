@@ -15,7 +15,7 @@ import { getTheme } from "../../integrations/theme/getTheme"
 import WorkspaceTracker from "../../integrations/workspace/WorkspaceTracker"
 import { McpHub } from "../../services/mcp/McpHub"
 import { FirebaseAuthManager, UserInfo } from "../../services/auth/FirebaseAuthManager"
-import { ApiProvider, ModelInfo } from "../../shared/api"
+import { ApiConfiguration, ApiProvider, ModelInfo } from "../../shared/api"
 import { findLast } from "../../shared/array"
 import { ExtensionMessage, ExtensionState, Platform } from "../../shared/ExtensionMessage"
 import { HistoryItem } from "../../shared/HistoryItem"
@@ -29,6 +29,8 @@ import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "../../shar
 import { BrowserSettings, DEFAULT_BROWSER_SETTINGS } from "../../shared/BrowserSettings"
 import { ChatSettings, DEFAULT_CHAT_SETTINGS } from "../../shared/ChatSettings"
 import { FigmaService } from "../../services/figma/figma"
+import { singleCompletionHandler } from "../../utils/single-completion-handler"
+import { supportPrompt } from "../../shared/support-prompt"
 
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -854,6 +856,38 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						}
 						break
 					}
+					case "enhancePrompt":
+						if (message.text) {
+							try {
+								const { apiConfiguration } = await this.getState()
+
+								// Try to get enhancement config first, fall back to current config
+								let configToUse: ApiConfiguration = apiConfiguration
+
+								const enhancedPrompt = await singleCompletionHandler(
+									configToUse,
+									supportPrompt.create("ENHANCE", {
+										userInput: message.text,
+									}),
+								)
+
+								await this.postMessageToWebview({
+									type: "enhancedPrompt",
+									text: enhancedPrompt,
+								})
+							} catch (error) {
+								this.outputChannel.appendLine(
+									`Error enhancing prompt: ${JSON.stringify(error, Object.getOwnPropertyNames(error), 2)}`,
+								)
+								console.error("Error enhancing prompt:", error)
+								vscode.window.showErrorMessage("Failed to enhance prompt")
+								await this.postMessageToWebview({
+									type: "enhancedPrompt",
+								})
+							}
+						}
+						break
+
 					// Add more switch case statements here as more webview message commands
 					// are created within the webview context (i.e. inside media/main.js)
 				}

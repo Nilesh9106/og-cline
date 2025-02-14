@@ -129,4 +129,20 @@ export class OpenAiHandler implements ApiHandler {
 			info: this.options.openAiModelInfo ?? openAiModelInfoSaneDefaults,
 		}
 	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+				model: this.getModel().id,
+				messages: [{ role: "user", content: prompt }],
+			}
+
+			const response = await this.client.chat.completions.create(requestOptions)
+			return response.choices[0]?.message.content || ""
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`OpenAI completion error: ${error.message}`)
+			}
+			throw error
+		}
+	}
 }
