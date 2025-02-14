@@ -1,5 +1,6 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import OpenAI from "openai"
+import { withRetry } from "../retry"
 import { ApiHandler } from "../"
 import { ApiHandlerOptions, DeepSeekModelId, ModelInfo, deepSeekDefaultModelId, deepSeekModels } from "../../shared/api"
 import { convertToOpenAiMessages } from "../transform/openai-format"
@@ -18,6 +19,7 @@ export class DeepSeekHandler implements ApiHandler {
 		})
 	}
 
+	@withRetry()
 	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
 		const model = this.getModel()
 
@@ -81,6 +83,22 @@ export class DeepSeekHandler implements ApiHandler {
 		return {
 			id: deepSeekDefaultModelId,
 			info: deepSeekModels[deepSeekDefaultModelId],
+		}
+	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming = {
+				model: this.getModel().id,
+				messages: [{ role: "user", content: prompt }],
+			}
+
+			const response = await this.client.chat.completions.create(requestOptions)
+			return response.choices[0]?.message.content || ""
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`OpenAI completion error: ${error.message}`)
+			}
+			throw error
 		}
 	}
 }

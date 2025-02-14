@@ -1,5 +1,6 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import { GoogleGenerativeAI } from "@google/generative-ai"
+import { withRetry } from "../retry"
 import { ApiHandler } from "../"
 import { ApiHandlerOptions, geminiDefaultModelId, GeminiModelId, geminiModels, ModelInfo } from "../../shared/api"
 import { convertAnthropicMessageToGemini } from "../transform/gemini-format"
@@ -17,6 +18,7 @@ export class GeminiHandler implements ApiHandler {
 		this.client = new GoogleGenerativeAI(options.geminiApiKey)
 	}
 
+	@withRetry()
 	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
 		const model = this.client.getGenerativeModel({
 			model: this.getModel().id,
@@ -54,6 +56,25 @@ export class GeminiHandler implements ApiHandler {
 		return {
 			id: geminiDefaultModelId,
 			info: geminiModels[geminiDefaultModelId],
+		}
+	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const model = this.client.getGenerativeModel({
+				model: this.getModel().id,
+			})
+
+			const result = await model.generateContent({
+				contents: [{ role: "user", parts: [{ text: prompt }] }],
+				generationConfig: {},
+			})
+
+			return result.response.text()
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`Gemini completion error: ${error.message}`)
+			}
+			throw error
 		}
 	}
 }

@@ -1,5 +1,6 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import { Stream as AnthropicStream } from "@anthropic-ai/sdk/streaming"
+import { withRetry } from "../retry"
 import { anthropicDefaultModelId, AnthropicModelId, anthropicModels, ApiHandlerOptions, ModelInfo } from "../../shared/api"
 import { ApiHandler } from "../index"
 import { ApiStream } from "../transform/stream"
@@ -16,6 +17,7 @@ export class AnthropicHandler implements ApiHandler {
 		})
 	}
 
+	@withRetry()
 	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
 		const model = this.getModel()
 		let stream: AnthropicStream<Anthropic.Beta.PromptCaching.Messages.RawPromptCachingBetaMessageStreamEvent>
@@ -184,6 +186,27 @@ export class AnthropicHandler implements ApiHandler {
 		return {
 			id: anthropicDefaultModelId,
 			info: anthropicModels[anthropicDefaultModelId],
+		}
+	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const response = await this.client.messages.create({
+				model: this.getModel().id,
+				max_tokens: this.getModel().info.maxTokens || 8192,
+				messages: [{ role: "user", content: prompt }],
+				stream: false,
+			})
+
+			const content = response.content[0]
+			if (content.type === "text") {
+				return content.text
+			}
+			return ""
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`Anthropic completion error: ${error.message}`)
+			}
+			throw error
 		}
 	}
 }

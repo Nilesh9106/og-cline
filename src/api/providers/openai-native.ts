@@ -1,5 +1,6 @@
 import { Anthropic } from "@anthropic-ai/sdk"
 import OpenAI from "openai"
+import { withRetry } from "../retry"
 import { ApiHandler } from "../"
 import {
 	ApiHandlerOptions,
@@ -10,6 +11,7 @@ import {
 } from "../../shared/api"
 import { convertToOpenAiMessages } from "../transform/openai-format"
 import { ApiStream } from "../transform/stream"
+import { ChatCompletionReasoningEffort } from "openai/resources/chat/completions.mjs"
 
 export class OpenAiNativeHandler implements ApiHandler {
 	private options: ApiHandlerOptions
@@ -22,6 +24,7 @@ export class OpenAiNativeHandler implements ApiHandler {
 		})
 	}
 
+	@withRetry()
 	async *createMessage(systemPrompt: string, messages: Anthropic.Messages.MessageParam[]): ApiStream {
 		switch (this.getModel().id) {
 			case "o1":
@@ -49,6 +52,7 @@ export class OpenAiNativeHandler implements ApiHandler {
 					messages: [{ role: "developer", content: systemPrompt }, ...convertToOpenAiMessages(messages)],
 					stream: true,
 					stream_options: { include_usage: true },
+					reasoning_effort: (this.options.o3MiniReasoningEffort as ChatCompletionReasoningEffort) || "medium",
 				})
 				for await (const chunk of stream) {
 					const delta = chunk.choices[0]?.delta
@@ -109,6 +113,58 @@ export class OpenAiNativeHandler implements ApiHandler {
 		return {
 			id: openAiNativeDefaultModelId,
 			info: openAiNativeModels[openAiNativeDefaultModelId],
+		}
+	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const modelId = this.getModel().id
+			let requestOptions: OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming
+
+			if (modelId.startsWith("o1")) {
+				requestOptions = this.getO1CompletionOptions(modelId, prompt)
+			} else if (modelId.startsWith("o3-mini")) {
+				requestOptions = this.getO3CompletionOptions(modelId, prompt)
+			} else {
+				requestOptions = this.getDefaultCompletionOptions(modelId, prompt)
+			}
+
+			const response = await this.client.chat.completions.create(requestOptions)
+			return response.choices[0]?.message.content || ""
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`OpenAI Native completion error: ${error.message}`)
+			}
+			throw error
+		}
+	}
+
+	private getO1CompletionOptions(
+		modelId: string,
+		prompt: string,
+	): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming {
+		return {
+			model: modelId,
+			messages: [{ role: "user", content: prompt }],
+		}
+	}
+
+	private getO3CompletionOptions(
+		modelId: string,
+		prompt: string,
+	): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming {
+		return {
+			model: "o3-mini",
+			messages: [{ role: "user", content: prompt }],
+		}
+	}
+
+	private getDefaultCompletionOptions(
+		modelId: string,
+		prompt: string,
+	): OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming {
+		return {
+			model: modelId,
+			messages: [{ role: "user", content: prompt }],
 		}
 	}
 }

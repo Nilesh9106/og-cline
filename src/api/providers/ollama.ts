@@ -4,6 +4,7 @@ import { ApiHandler } from "../"
 import { ApiHandlerOptions, ModelInfo, openAiModelInfoSaneDefaults } from "../../shared/api"
 import { convertToOpenAiMessages } from "../transform/openai-format"
 import { ApiStream } from "../transform/stream"
+import { convertToR1Format } from "../transform/r1-format"
 
 export class OllamaHandler implements ApiHandler {
 	private options: ApiHandlerOptions
@@ -44,6 +45,25 @@ export class OllamaHandler implements ApiHandler {
 		return {
 			id: this.options.ollamaModelId || "",
 			info: openAiModelInfoSaneDefaults,
+		}
+	}
+	async completePrompt(prompt: string): Promise<string> {
+		try {
+			const modelId = this.getModel().id
+			const useR1Format = modelId.toLowerCase().includes("deepseek-r1")
+			const response = await this.client.chat.completions.create({
+				model: this.getModel().id,
+				messages: useR1Format
+					? convertToR1Format([{ role: "user", content: prompt }])
+					: [{ role: "user", content: prompt }],
+				stream: false,
+			})
+			return response.choices[0]?.message.content || ""
+		} catch (error) {
+			if (error instanceof Error) {
+				throw new Error(`Ollama completion error: ${error.message}`)
+			}
+			throw error
 		}
 	}
 }
