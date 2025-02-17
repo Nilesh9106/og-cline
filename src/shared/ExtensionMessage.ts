@@ -30,6 +30,8 @@ export interface ExtensionMessage {
 		| "emailSubscribed"
 		| "importFigma"
 		| "enhancedPrompt"
+		| "projectSelected"
+		| "projects"
 	text?: string
 	action?:
 		| "chatButtonClicked"
@@ -50,6 +52,8 @@ export interface ExtensionMessage {
 	openRouterModels?: Record<string, ModelInfo>
 	openAiModels?: string[]
 	mcpServers?: McpServer[]
+	projects?: Array<{ uniqueName: string; title: string }>
+	projectName?: string
 }
 
 export type Platform = "aix" | "darwin" | "freebsd" | "linux" | "openbsd" | "sunos" | "win32" | "unknown"
@@ -72,6 +76,8 @@ export interface ExtensionState {
 	isLoggedIn: boolean
 	platform: Platform
 	userInfo?: User
+	projectNames?: Record<string, string>
+	selectedProjectName?: string
 }
 
 export interface ClineMessage {

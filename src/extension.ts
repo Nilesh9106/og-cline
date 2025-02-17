@@ -137,7 +137,6 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			const selectedText = editor.document.getText(selection)
-			const fullFileContent = editor.document.getText()
 			const filePath = editor.document.fileName
 			const languageId = editor.document.languageId
 
@@ -152,14 +151,13 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			// Format the task message with code context
-			const taskMessage = `Please help modify this code:
-Selected code:
-\`\`\`${languageId}
+			const taskMessage = `
+<code language="${languageId}">
 ${selectedText}
-\`\`\`
-Instruction: ${editInstruction}
-File context: @/${vscode.workspace.asRelativePath(filePath)}
-Don't Do anything else, it just simple in-file change just do the task and complete the task, don't ask for testing, directly use task completion tool
+</code>
+<instruction>${editInstruction}</instruction>
+<context>@/${vscode.workspace.asRelativePath(filePath)}</context>
+Don't do anything else; it's just a simple in-file change. Just do the task and complete it, don't ask for testing, directly use the task completion tool.
 `
 
 			// Initialize a new task with the code editing request

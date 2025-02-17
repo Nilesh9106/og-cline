@@ -30,6 +30,7 @@ import { ChatSettings, DEFAULT_CHAT_SETTINGS } from "../../shared/ChatSettings"
 import { singleCompletionHandler } from "../../utils/single-completion-handler"
 import { supportPrompt } from "../../shared/support-prompt"
 import { User } from "../../services/og-tools/types"
+import { OgToolsService } from "../../services/og-tools/OgToolsService"
 
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -92,6 +93,8 @@ type GlobalStateKey =
 	| "qwenApiLine"
 	| "requestyModelId"
 	| "togetherModelId"
+	| "projectNames"
+	| "selectedProjectName"
 
 export const GlobalFileNames = {
 	apiConversationHistory: "api_conversation_history.json",
@@ -111,6 +114,24 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	workspaceTracker?: WorkspaceTracker
 	mcpHub?: McpHub
 	private latestAnnouncementId = "jan-20-2025" // update to some unique identifier when we add a new announcement
+
+	private async recheckSelectedProjectName() {
+		const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+		if (currentWorkspace) {
+			const projectNames = ((await this.getGlobalState("projectNames")) as Record<string, string>) || {}
+			const projectName = projectNames[currentWorkspace]
+
+			if (projectName) {
+				await this.updateGlobalState("selectedProjectName", projectName)
+				this.outputChannel.appendLine(`Updated selected project name to: ${projectName}`)
+			} else {
+				// Clear selected project name if current workspace doesn't have an associated project
+				await this.updateGlobalState("selectedProjectName", undefined)
+				this.outputChannel.appendLine("Cleared selected project name - no project associated with current workspace")
+			}
+			await this.postStateToWebview()
+		}
+	}
 
 	constructor(
 		readonly context: vscode.ExtensionContext,
@@ -154,9 +175,12 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		try {
 			await this.deleteToken()
 			await this.setUserInfo(undefined)
+			await this.updateGlobalState("projectNames", {})
+			await this.updateGlobalState("selectedProjectName", undefined)
 			this.postStateToWebview()
 			vscode.window.showInformationMessage("Successfully logged out of Cline")
 		} catch (error) {
+			this.outputChannel.appendLine(`Logout failed: ${error.message}`)
 			vscode.window.showErrorMessage("Logout failed")
 		}
 	}
@@ -185,6 +209,9 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	): void | Thenable<void> {
 		this.outputChannel.appendLine("Resolving webview view")
 		this.view = webviewView
+
+		// Check and update selected project name based on current workspace
+		this.recheckSelectedProjectName()
 
 		webviewView.webview.options = {
 			// Allow scripts in the webview
@@ -253,6 +280,15 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						text: JSON.stringify(await getTheme()),
 					})
 				}
+			},
+			null,
+			this.disposables,
+		)
+
+		// Listen for workspace folder changes
+		vscode.workspace.onDidChangeWorkspaceFolders(
+			() => {
+				this.recheckSelectedProjectName()
 			},
 			null,
 			this.disposables,
@@ -387,6 +423,29 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		webview.onDidReceiveMessage(
 			async (message: WebviewMessage) => {
 				switch (message.type) {
+					case "getProjects":
+						try {
+							const authToken = await this.getSecret("authToken")
+							if (!authToken) {
+								return
+							}
+							const response = await OgToolsService.getProjects(authToken)
+							console.log("projects from extension", response)
+
+							await this.postMessageToWebview({
+								type: "projects",
+								projects: response,
+							})
+						} catch (error) {
+							console.error("Error fetching projects:", error)
+							vscode.window.showErrorMessage("Failed to fetch projects")
+						}
+						break
+					case "projectSelected":
+						if (message.projectName) {
+							await this.updateProjectName(message.projectName)
+						}
+						break
 					case "webviewDidLaunch":
 						this.postStateToWebview()
 						this.workspaceTracker?.populateFilePaths() // don't await
@@ -1356,6 +1415,8 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			chatSettings,
 			userInfo,
 			authToken,
+			projectNames,
+			selectedProjectName,
 		} = await this.getState()
 
 		return {
@@ -1374,12 +1435,26 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			chatSettings,
 			isLoggedIn: !!authToken,
 			userInfo,
+			projectNames,
+			selectedProjectName,
 		}
 	}
 
 	async clearTask() {
 		this.cline?.abortTask()
 		this.cline = undefined // removes reference to it, so once promises end it will be garbage collected
+	}
+
+	async updateProjectName(projectName: string) {
+		const projectNames = ((await this.getGlobalState("projectNames")) as Record<string, string>) || {}
+		const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+
+		if (currentWorkspace) {
+			projectNames[currentWorkspace] = projectName
+			await this.updateGlobalState("projectNames", projectNames)
+			await this.updateGlobalState("selectedProjectName", projectName)
+			await this.postStateToWebview()
+		}
 	}
 
 	async getState() {
@@ -1435,6 +1510,8 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			previousModeModelInfo,
 			qwenApiLine,
 			liteLlmApiKey,
+			projectNames,
+			selectedProjectName,
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("apiModelId") as Promise<string | undefined>,
@@ -1487,6 +1564,8 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.getGlobalState("previousModeModelInfo") as Promise<ModelInfo | undefined>,
 			this.getGlobalState("qwenApiLine") as Promise<string | undefined>,
 			this.getSecret("liteLlmApiKey") as Promise<string | undefined>,
+			this.getGlobalState("projectNames") as Promise<Record<string, string> | undefined>,
+			this.getGlobalState("selectedProjectName") as Promise<string | undefined>,
 		])
 
 		let apiProvider: ApiProvider
@@ -1562,6 +1641,8 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			previousModeApiProvider,
 			previousModeModelId,
 			previousModeModelInfo,
+			projectNames,
+			selectedProjectName,
 		}
 	}
 

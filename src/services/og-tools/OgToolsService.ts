@@ -59,4 +59,19 @@ export class OgToolsService {
 			throw error
 		}
 	}
+	static async getProjects(accessToken: string) {
+		try {
+			const response = await axios.get(`${this.baseUrl}/projects`, {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			})
+			return response.data.data
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				throw new Error(`Failed to fetch projects: ${error.response?.data?.message || error.message}`)
+			}
+			throw error
+		}
+	}
 }

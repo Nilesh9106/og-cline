@@ -46,6 +46,8 @@ export interface WebviewMessage {
 		| "subscribeEmail"
 		| "importFigma"
 		| "enhancePrompt"
+		| "getProjects"
+		| "projectSelected"
 	// | "relaunchChromeDebugMode"
 	text?: string
 	disabled?: boolean
@@ -58,6 +60,7 @@ export interface WebviewMessage {
 	browserSettings?: BrowserSettings
 	chatSettings?: ChatSettings
 	chatContent?: ChatContent
+	projectName?: string
 
 	// For toggleToolAutoApprove
 	serverName?: string
