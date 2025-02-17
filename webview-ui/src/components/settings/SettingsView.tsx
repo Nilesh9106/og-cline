@@ -12,7 +12,8 @@ type SettingsViewProps = {
 }
 
 const SettingsView = ({ onDone }: SettingsViewProps) => {
-	const { apiConfiguration, version, customInstructions, setCustomInstructions, openRouterModels } = useExtensionState()
+	const { apiConfiguration, version, customInstructions, setCustomInstructions, openRouterModels, isLoggedIn, userInfo } =
+		useExtensionState()
 	const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
 	const [modelIdErrorMessage, setModelIdErrorMessage] = useState<string | undefined>(undefined)
 
@@ -86,6 +87,43 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 					display: "flex",
 					flexDirection: "column",
 				}}>
+				{isLoggedIn ? (
+					<div style={{ margin: "0 0 16px 0", textAlign: "center", color: "var(--vscode-foreground)" }}>
+						{userInfo ? (
+							<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+								<div style={{ fontWeight: "bold" }}>{userInfo.displayName}</div>
+								<div>{userInfo.email}</div>
+							</div>
+						) : (
+							<div>You are signed in with OpenGig</div>
+						)}
+					</div>
+				) : (
+					<VSCodeButton
+						onClick={() => {
+							// Generate nonce for state validation
+							vscode.postMessage({ type: "accountLoginClicked" })
+						}}
+						style={{
+							margin: "0 0 16px 0",
+							width: "auto",
+						}}>
+						Sign in with OpenGig
+					</VSCodeButton>
+				)}
+				{isLoggedIn ? (
+					<VSCodeButton
+						onClick={() => {
+							// Generate nonce for state validation
+							vscode.postMessage({ type: "accountLogoutClicked" })
+						}}
+						style={{
+							margin: "0 0 16px 0",
+							width: "auto",
+						}}>
+						Sign out
+					</VSCodeButton>
+				) : null}
 				<div style={{ marginBottom: 5 }}>
 					<ApiOptions
 						showModelOptions={true}

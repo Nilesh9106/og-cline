@@ -14,8 +14,7 @@ import { selectImages } from "../../integrations/misc/process-images"
 import { getTheme } from "../../integrations/theme/getTheme"
 import WorkspaceTracker from "../../integrations/workspace/WorkspaceTracker"
 import { McpHub } from "../../services/mcp/McpHub"
-import { FirebaseAuthManager, UserInfo } from "../../services/auth/FirebaseAuthManager"
-import { ApiConfiguration, ApiProvider, ModelInfo } from "../../shared/api"
+import { ApiConfiguration, ApiProvider, ModelInfo, OPENGIG_APP_URL } from "../../shared/api"
 import { findLast } from "../../shared/array"
 import { ExtensionMessage, ExtensionState, Platform } from "../../shared/ExtensionMessage"
 import { HistoryItem } from "../../shared/HistoryItem"
@@ -28,9 +27,9 @@ import { getUri } from "./getUri"
 import { AutoApprovalSettings, DEFAULT_AUTO_APPROVAL_SETTINGS } from "../../shared/AutoApprovalSettings"
 import { BrowserSettings, DEFAULT_BROWSER_SETTINGS } from "../../shared/BrowserSettings"
 import { ChatSettings, DEFAULT_CHAT_SETTINGS } from "../../shared/ChatSettings"
-import { FigmaService } from "../../services/figma/figma"
 import { singleCompletionHandler } from "../../utils/single-completion-handler"
 import { supportPrompt } from "../../shared/support-prompt"
+import { User } from "../../services/og-tools/types"
 
 /*
 https://github.com/microsoft/vscode-webview-ui-toolkit-samples/blob/main/default/weather-webview/src/providers/WeatherViewProvider.ts
@@ -56,6 +55,7 @@ type SecretKey =
 	| "authToken"
 	| "authNonce"
 	| "figmaAccessToken"
+	| "authState"
 type GlobalStateKey =
 	| "apiProvider"
 	| "apiModelId"
@@ -110,7 +110,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	private cline?: Cline
 	workspaceTracker?: WorkspaceTracker
 	mcpHub?: McpHub
-	private authManager: FirebaseAuthManager
 	private latestAnnouncementId = "jan-20-2025" // update to some unique identifier when we add a new announcement
 
 	constructor(
@@ -121,7 +120,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		ClineProvider.activeInstances.add(this)
 		this.workspaceTracker = new WorkspaceTracker(this)
 		this.mcpHub = new McpHub(this)
-		this.authManager = new FirebaseAuthManager(this)
 	}
 
 	/*
@@ -147,7 +145,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		this.workspaceTracker = undefined
 		this.mcpHub?.dispose()
 		this.mcpHub = undefined
-		this.authManager.dispose()
 		this.outputChannel.appendLine("Disposed all disposables")
 		ClineProvider.activeInstances.delete(this)
 	}
@@ -155,18 +152,25 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 	// Auth methods
 	async handleSignOut() {
 		try {
-			await this.authManager.signOut()
+			await this.deleteToken()
+			await this.setUserInfo(undefined)
+			this.postStateToWebview()
 			vscode.window.showInformationMessage("Successfully logged out of Cline")
 		} catch (error) {
 			vscode.window.showErrorMessage("Logout failed")
 		}
 	}
 
-	async setAuthToken(token?: string) {
-		await this.storeSecret("authToken", token)
+	async openAuthUrl(authUrl: string): Promise<void> {
+		const uri = vscode.Uri.parse(authUrl)
+		await vscode.env.openExternal(uri)
 	}
 
-	async setUserInfo(info?: { displayName: string | null; email: string | null; photoURL: string | null }) {
+	async deleteToken(): Promise<void> {
+		await this.storeSecret("authToken", undefined)
+	}
+
+	async setUserInfo(info?: User) {
 		await this.updateGlobalState("userInfo", info)
 	}
 
@@ -419,14 +423,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						})
 						break
 					case "newTask":
-						// Code that should run in response to the hello message command
-						//vscode.window.showInformationMessage(message.text!)
-
-						// Send a message to our webview.
-						// You can send any JSON serializable data.
-						// Could also do this in extension .ts
-						//this.postMessageToWebview({ type: "text", text: `Extension: ${Date.now()}` })
-						// initializing new instance of Cline will make sure that any agentically running promises in old instance don't affect our new task. this essentially creates a fresh slate for the new task
 						await this.initClineWithTask(message.text, message.images)
 						break
 					case "apiConfiguration":
@@ -641,11 +637,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 							}
 						}
 						break
-					// case "relaunchChromeDebugMode":
-					// 	if (this.cline) {
-					// 		this.cline.browserSession.relaunchChromeDebugMode()
-					// 	}
-					// 	break
 					case "askResponse":
 						this.cline?.handleWebviewAskResponse(message.askResponse!, message.text, message.images)
 						break
@@ -759,19 +750,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						break
 					case "accountLoginClicked": {
 						// Generate nonce for state validation
-						const nonce = crypto.randomBytes(32).toString("hex")
-						await this.storeSecret("authNonce", nonce)
-
-						// Open browser for authentication with state param
-						console.log("Login button clicked in account page")
-						console.log("Opening auth page with state param")
-
-						const uriScheme = vscode.env.uriScheme
-
-						const authUrl = vscode.Uri.parse(
-							`https://app.cline.bot/auth?state=${encodeURIComponent(nonce)}&callback_url=${encodeURIComponent(`${uriScheme || "vscode"}://saoudrizwan.claude-dev/auth`)}`,
-						)
-						vscode.env.openExternal(authUrl)
+						await this.signInWithOpenGig()
 						break
 					}
 					case "accountLogoutClicked": {
@@ -1066,16 +1045,13 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 	async handleAuthCallback(token: string) {
 		try {
-			// First sign in with Firebase to trigger auth state change
-			await this.authManager.signInWithCustomToken(token)
-
-			// Then store the token securely
 			await this.storeSecret("authToken", token)
+			await this.storeSecret("authState", undefined)
 			await this.postStateToWebview()
-			vscode.window.showInformationMessage("Successfully logged in to Cline")
+			vscode.window.showInformationMessage("Successfully logged in to Opengig")
 		} catch (error) {
 			console.error("Failed to handle auth callback:", error)
-			vscode.window.showErrorMessage("Failed to log in to Cline")
+			vscode.window.showErrorMessage("Failed to log in to Opengig")
 		}
 	}
 
@@ -1406,52 +1382,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		this.cline = undefined // removes reference to it, so once promises end it will be garbage collected
 	}
 
-	// Caching mechanism to keep track of webview messages + API conversation history per provider instance
-
-	/*
-	Now that we use retainContextWhenHidden, we don't have to store a cache of cline messages in the user's state, but we could to reduce memory footprint in long conversations.
-
-	- We have to be careful of what state is shared between ClineProvider instances since there could be multiple instances of the extension running at once. For example when we cached cline messages using the same key, two instances of the extension could end up using the same key and overwriting each other's messages.
-	- Some state does need to be shared between the instances, i.e. the API key--however there doesn't seem to be a good way to notify the other instances that the API key has changed.
-
-	We need to use a unique identifier for each ClineProvider instance's message cache since we could be running several instances of the extension outside of just the sidebar i.e. in editor panels.
-
-	// conversation history to send in API requests
-
-	/*
-	It seems that some API messages do not comply with vscode state requirements. Either the Anthropic library is manipulating these values somehow in the backend in a way thats creating cyclic references, or the API returns a function or a Symbol as part of the message content.
-	VSCode docs about state: "The value must be JSON-stringifyable ... value — A value. MUST not contain cyclic references."
-	For now we'll store the conversation history in memory, and if we need to store in state directly we'd need to do a manual conversion to ensure proper json stringification.
-	*/
-
-	// getApiConversationHistory(): Anthropic.MessageParam[] {
-	// 	// const history = (await this.getGlobalState(
-	// 	// 	this.getApiConversationHistoryStateKey()
-	// 	// )) as Anthropic.MessageParam[]
-	// 	// return history || []
-	// 	return this.apiConversationHistory
-	// }
-
-	// setApiConversationHistory(history: Anthropic.MessageParam[] | undefined) {
-	// 	// await this.updateGlobalState(this.getApiConversationHistoryStateKey(), history)
-	// 	this.apiConversationHistory = history || []
-	// }
-
-	// addMessageToApiConversationHistory(message: Anthropic.MessageParam): Anthropic.MessageParam[] {
-	// 	// const history = await this.getApiConversationHistory()
-	// 	// history.push(message)
-	// 	// await this.setApiConversationHistory(history)
-	// 	// return history
-	// 	this.apiConversationHistory.push(message)
-	// 	return this.apiConversationHistory
-	// }
-
-	/*
-	Storage
-	https://dev.to/kompotkot/how-to-use-secretstorage-in-your-vscode-extensions-2hco
-	https://www.eliostruyf.com/devhack-code-extension-storage-options/
-	*/
-
 	async getState() {
 		const [
 			storedApiProvider,
@@ -1550,7 +1480,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.getSecret("figmaAccessToken") as Promise<string | undefined>,
 			this.getGlobalState("liteLlmBaseUrl") as Promise<string | undefined>,
 			this.getGlobalState("liteLlmModelId") as Promise<string | undefined>,
-			this.getGlobalState("userInfo") as Promise<UserInfo | undefined>,
+			this.getGlobalState("userInfo") as Promise<User | undefined>,
 			this.getSecret("authToken") as Promise<string | undefined>,
 			this.getGlobalState("previousModeApiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("previousModeModelId") as Promise<string | undefined>,
@@ -1679,7 +1609,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 	// secrets
 
-	private async storeSecret(key: SecretKey, value?: string) {
+	async storeSecret(key: SecretKey, value?: string) {
 		if (value) {
 			await this.context.secrets.store(key, value)
 		} else {
@@ -1689,6 +1619,23 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 	async getSecret(key: SecretKey) {
 		return await this.context.secrets.get(key)
+	}
+
+	async signInWithOpenGig(): Promise<void> {
+		try {
+			const state = getNonce()
+			await this.storeSecret("authState", state)
+
+			const redirectUri = vscode.env.uriScheme + "://opengig.og-cline/auth" // Replace with your actual redirect URI
+			const authUrl = `${OPENGIG_APP_URL}/auth/vscode-callback?redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}`
+
+			console.log("Auth URL:", authUrl)
+			vscode.window.showInformationMessage(`Opening OpenGig sign-in page...`)
+			await this.openAuthUrl(authUrl)
+		} catch (error) {
+			console.error("Failed to sign in with OpenGig:", error)
+			vscode.window.showErrorMessage("Failed to sign in with OpenGig.")
+		}
 	}
 
 	// dev

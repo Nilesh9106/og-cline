@@ -1,3 +1,6 @@
+export const OPENGIG_API_URL = "http://localhost:3001"
+export const OPENGIG_APP_URL = "http://localhost:3000"
+
 export type ApiProvider =
 	| "anthropic"
 	| "openrouter"

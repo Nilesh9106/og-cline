@@ -1,5 +1,6 @@
 // type that represents json data that is sent from extension to webview, called ExtensionMessage and has 'type' enum which can be 'plusButtonClicked' or 'settingsButtonClicked' or 'hello'
 
+import { User } from "../services/og-tools/types"
 import { ApiConfiguration, ModelInfo } from "./api"
 import { AutoApprovalSettings } from "./AutoApprovalSettings"
 import { BrowserSettings } from "./BrowserSettings"
@@ -70,11 +71,7 @@ export interface ExtensionState {
 	chatSettings: ChatSettings
 	isLoggedIn: boolean
 	platform: Platform
-	userInfo?: {
-		displayName: string | null
-		email: string | null
-		photoURL: string | null
-	}
+	userInfo?: User
 }
 
 export interface ClineMessage {
