@@ -7,6 +7,7 @@ import { Logger } from "./services/logging/Logger"
 import { createClineAPI } from "./exports"
 import "./utils/path" // necessary to have access to String.prototype.toPosix
 import { DIFF_VIEW_URI_SCHEME } from "./integrations/editor/DiffViewProvider"
+import { OgToolsService } from "./services/og-tools/OgToolsService"
 
 /*
 Built using https://github.com/microsoft/vscode-webview-ui-toolkit
@@ -136,7 +137,6 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			const selectedText = editor.document.getText(selection)
-			const fullFileContent = editor.document.getText()
 			const filePath = editor.document.fileName
 			const languageId = editor.document.languageId
 
@@ -151,14 +151,13 @@ export function activate(context: vscode.ExtensionContext) {
 			}
 
 			// Format the task message with code context
-			const taskMessage = `Please help modify this code:
-Selected code:
-\`\`\`${languageId}
+			const taskMessage = `
+<code language="${languageId}">
 ${selectedText}
-\`\`\`
-Instruction: ${editInstruction}
-File context: @/${vscode.workspace.asRelativePath(filePath)}
-Don't Do anything else, it just simple in-file change just do the task and complete the task, don't ask for testing, directly use task completion tool
+</code>
+<instruction>${editInstruction}</instruction>
+<context>@/${vscode.workspace.asRelativePath(filePath)}</context>
+Don't do anything else; it's just a simple in-file change. Just do the task and complete it, don't ask for testing, directly use the task completion tool.
 `
 
 			// Initialize a new task with the code editing request
@@ -180,50 +179,49 @@ Don't Do anything else, it just simple in-file change just do the task and compl
 	})()
 	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(DIFF_VIEW_URI_SCHEME, diffContentProvider))
 
-	// URI Handler
+	// URI Handler (Implicit Flow)
 	const handleUri = async (uri: vscode.Uri) => {
 		console.log("URI Handler called with:", {
 			path: uri.path,
+			fragment: uri.fragment,
 			query: uri.query,
 			scheme: uri.scheme,
 		})
 
-		const path = uri.path
-		const query = new URLSearchParams(uri.query.replace(/\+/g, "%2B"))
 		const visibleProvider = ClineProvider.getVisibleInstance()
 		if (!visibleProvider) {
 			return
 		}
-		switch (path) {
-			case "/openrouter": {
-				const code = query.get("code")
-				if (code) {
-					await visibleProvider.handleOpenRouterCallback(code)
-				}
-				break
-			}
-			case "/auth": {
-				const token = query.get("token")
-				const state = query.get("state")
 
-				console.log("Auth callback received:", {
-					token: token,
-					state: state,
-				})
+		if (uri.path === "/auth") {
+			try {
+				const fragmentParams = new URLSearchParams(uri.query.replace(/\+/g, "%2B"))
+				const accessCode = fragmentParams.get("code")
+				const accessToken = fragmentParams.get("token")
+				const state = fragmentParams.get("state")
 
-				// Validate state parameter
-				if (!(await visibleProvider.validateAuthState(state))) {
-					vscode.window.showErrorMessage("Invalid auth state")
+				const storedState = await visibleProvider.getSecret("authState")
+				console.log("Stored state:", storedState)
+				console.log("Received state:", state)
+
+				if (state !== storedState) {
+					vscode.window.showErrorMessage("Authentication failed: Invalid state.")
 					return
 				}
-
-				if (token) {
-					await visibleProvider.handleAuthCallback(token)
+				// const accessToken = await OgToolsService.getAccessTokenFromCode(accessCode ?? "", state)
+				const user = await OgToolsService.getCurrentUser(accessToken ?? "")
+				if (user) {
+					await visibleProvider.setUserInfo(user)
 				}
-				break
+				if (accessToken) {
+					await visibleProvider.handleAuthCallback(accessToken)
+				} else {
+					vscode.window.showErrorMessage("Authentication failed: No access token received.")
+				}
+			} catch (e) {
+				console.log(e)
+				vscode.window.showErrorMessage("Authentication failed: No access token received.")
 			}
-			default:
-				break
 		}
 	}
 	context.subscriptions.push(vscode.window.registerUriHandler({ handleUri }))

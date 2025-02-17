@@ -1,3 +1,6 @@
+export const OPENGIG_API_URL = "https://tools-backend.dev.opengig.work"
+export const OPENGIG_APP_URL = "https://build.opengig.work"
+
 export type ApiProvider =
 	| "anthropic"
 	| "openrouter"

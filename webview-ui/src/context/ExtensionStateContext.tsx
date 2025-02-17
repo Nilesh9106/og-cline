@@ -18,6 +18,7 @@ interface ExtensionStateContextType extends ExtensionState {
 	openAiModels: string[]
 	mcpServers: McpServer[]
 	filePaths: string[]
+	projects?: Array<{ uniqueName: string; title: string }>
 	setApiConfiguration: (config: ApiConfiguration) => void
 	setCustomInstructions: (value?: string) => void
 	setShowAnnouncement: (value: boolean) => void
@@ -46,7 +47,7 @@ export const ExtensionStateContextProvider: React.FC<{
 	const [openRouterModels, setOpenRouterModels] = useState<Record<string, ModelInfo>>({
 		[openRouterDefaultModelId]: openRouterDefaultModelInfo,
 	})
-
+	const [projects, setProjects] = useState<Array<{ uniqueName: string; title: string }>>([])
 	const [openAiModels, setOpenAiModels] = useState<string[]>([])
 	const [mcpServers, setMcpServers] = useState<McpServer[]>([])
 
@@ -122,6 +123,11 @@ export const ExtensionStateContextProvider: React.FC<{
 				setMcpServers(message.mcpServers ?? [])
 				break
 			}
+			case "projects": {
+				console.log("projects", message.projects)
+				setProjects(message.projects ?? [])
+				break
+			}
 		}
 	}, [])
 
@@ -140,6 +146,7 @@ export const ExtensionStateContextProvider: React.FC<{
 		openAiModels,
 		mcpServers,
 		filePaths,
+		projects,
 		setApiConfiguration: (value) =>
 			setState((prevState) => ({
 				...prevState,

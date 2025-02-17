@@ -1,20 +1,59 @@
-import { VSCodeButton, VSCodeLink, VSCodeTextArea } from "@vscode/webview-ui-toolkit/react"
+import { VSCodeButton, VSCodeLink, VSCodeDropdown, VSCodeOption } from "@vscode/webview-ui-toolkit/react"
 import { memo, useEffect, useState } from "react"
 import { useExtensionState } from "../../context/ExtensionStateContext"
 import { validateApiConfiguration, validateModelId } from "../../utils/validate"
 import { vscode } from "../../utils/vscode"
 import ApiOptions from "./ApiOptions"
 import SettingsButton from "../common/SettingsButton"
+import styled from "styled-components"
 const IS_DEV = false // FIXME: use flags when packaging
 
 type SettingsViewProps = {
 	onDone: () => void
 }
+const DROPDOWN_Z_INDEX = 1004
+const DropdownContainer = styled.div<{ zIndex?: number }>`
+	position: relative;
+	z-index: ${(props) => props.zIndex || DROPDOWN_Z_INDEX};
+
+	// Force dropdowns to open downward
+	& vscode-dropdown::part(listbox) {
+		position: absolute !important;
+		top: 100% !important;
+		bottom: auto !important;
+	}
+`
 
 const SettingsView = ({ onDone }: SettingsViewProps) => {
-	const { apiConfiguration, version, customInstructions, setCustomInstructions, openRouterModels } = useExtensionState()
+	const {
+		apiConfiguration,
+		version,
+		customInstructions,
+		openRouterModels,
+		isLoggedIn,
+		userInfo,
+		projects,
+		selectedProjectName,
+	} = useExtensionState()
 	const [apiErrorMessage, setApiErrorMessage] = useState<string | undefined>(undefined)
 	const [modelIdErrorMessage, setModelIdErrorMessage] = useState<string | undefined>(undefined)
+	const [selectedProject, setSelectedProject] = useState<string>(selectedProjectName || "")
+
+	useEffect(() => {
+		vscode.postMessage({ type: "getProjects" })
+	}, [])
+
+	useEffect(() => {
+		if (selectedProjectName) {
+			setSelectedProject(selectedProjectName)
+		}
+	}, [selectedProjectName])
+
+	const handleProjectChange = (event: any) => {
+		const projectName = event.target.value
+		setSelectedProject(projectName)
+		vscode.postMessage({ type: "projectSelected", projectName })
+	}
 
 	const handleSubmit = () => {
 		const apiValidationResult = validateApiConfiguration(apiConfiguration)
@@ -86,32 +125,79 @@ const SettingsView = ({ onDone }: SettingsViewProps) => {
 					display: "flex",
 					flexDirection: "column",
 				}}>
+				{isLoggedIn ? (
+					<div style={{ margin: "0 0 16px 0", textAlign: "center", color: "var(--vscode-foreground)" }}>
+						{userInfo ? (
+							<div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "8px" }}>
+								<div style={{ fontWeight: "bold" }}>{userInfo.displayName}</div>
+								<div>{userInfo.email}</div>
+							</div>
+						) : (
+							<div>You are signed in with OpenGig</div>
+						)}
+					</div>
+				) : (
+					<VSCodeButton
+						onClick={() => {
+							// Generate nonce for state validation
+							vscode.postMessage({ type: "accountLoginClicked" })
+						}}
+						style={{
+							margin: "0 0 16px 0",
+							width: "auto",
+						}}>
+						Sign in with OpenGig
+					</VSCodeButton>
+				)}
+				{isLoggedIn ? (
+					<VSCodeButton
+						onClick={() => {
+							// Generate nonce for state validation
+							vscode.postMessage({ type: "accountLogoutClicked" })
+						}}
+						style={{
+							margin: "0 0 16px 0",
+							width: "auto",
+						}}>
+						Sign out
+					</VSCodeButton>
+				) : null}
+				{isLoggedIn && (
+					<DropdownContainer
+						zIndex={DROPDOWN_Z_INDEX}
+						style={{
+							marginBottom: 5,
+						}}
+						className="dropdown-container">
+						<VSCodeDropdown
+							style={{
+								minWidth: 130,
+								width: "100%",
+								position: "relative",
+							}}
+							onChange={handleProjectChange}
+							value={selectedProject}>
+							{!projects?.length ? (
+								<VSCodeOption value="">Loading...</VSCodeOption>
+							) : (
+								<>
+									<VSCodeOption value="">Select Project</VSCodeOption>
+									{projects.map((project) => (
+										<VSCodeOption key={project.uniqueName} value={project.uniqueName}>
+											{project.title}
+										</VSCodeOption>
+									))}
+								</>
+							)}
+						</VSCodeDropdown>
+					</DropdownContainer>
+				)}
 				<div style={{ marginBottom: 5 }}>
 					<ApiOptions
 						showModelOptions={true}
 						apiErrorMessage={apiErrorMessage}
 						modelIdErrorMessage={modelIdErrorMessage}
 					/>
-				</div>
-
-				<div style={{ marginBottom: 5 }}>
-					<VSCodeTextArea
-						value={customInstructions ?? ""}
-						style={{ width: "100%" }}
-						resize="vertical"
-						rows={4}
-						placeholder={'e.g. "Run unit tests at the end", "Use TypeScript with async/await", "Speak in Spanish"'}
-						onInput={(e: any) => setCustomInstructions(e.target?.value ?? "")}>
-						<span style={{ fontWeight: "500" }}>Custom Instructions</span>
-					</VSCodeTextArea>
-					<p
-						style={{
-							fontSize: "12px",
-							marginTop: "5px",
-							color: "var(--vscode-descriptionForeground)",
-						}}>
-						These instructions are added to the end of the system prompt sent with every request.
-					</p>
 				</div>
 
 				{IS_DEV && (

@@ -1,5 +1,6 @@
 // type that represents json data that is sent from extension to webview, called ExtensionMessage and has 'type' enum which can be 'plusButtonClicked' or 'settingsButtonClicked' or 'hello'
 
+import { User } from "../services/og-tools/types"
 import { ApiConfiguration, ModelInfo } from "./api"
 import { AutoApprovalSettings } from "./AutoApprovalSettings"
 import { BrowserSettings } from "./BrowserSettings"
@@ -29,6 +30,8 @@ export interface ExtensionMessage {
 		| "emailSubscribed"
 		| "importFigma"
 		| "enhancedPrompt"
+		| "projectSelected"
+		| "projects"
 	text?: string
 	action?:
 		| "chatButtonClicked"
@@ -49,6 +52,8 @@ export interface ExtensionMessage {
 	openRouterModels?: Record<string, ModelInfo>
 	openAiModels?: string[]
 	mcpServers?: McpServer[]
+	projects?: Array<{ uniqueName: string; title: string }>
+	projectName?: string
 }
 
 export type Platform = "aix" | "darwin" | "freebsd" | "linux" | "openbsd" | "sunos" | "win32" | "unknown"
@@ -70,11 +75,9 @@ export interface ExtensionState {
 	chatSettings: ChatSettings
 	isLoggedIn: boolean
 	platform: Platform
-	userInfo?: {
-		displayName: string | null
-		email: string | null
-		photoURL: string | null
-	}
+	userInfo?: User
+	projectNames?: Record<string, string>
+	selectedProjectName?: string
 }
 
 export interface ClineMessage {

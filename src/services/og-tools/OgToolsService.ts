@@ -1,52 +1,20 @@
 import axios from "axios"
-
-interface UserStory {
-	id: string
-	title: string
-	description: string
-	acceptance_criteria: string[]
-	status: string
-	priority: string
-	created_at: string
-	updated_at: string
-}
-
-interface TechnicalDesign {
-	id: string
-	title: string
-	description: string
-	architecture: string
-	tech_stack: string[]
-	api_endpoints: {
-		path: string
-		method: string
-		description: string
-	}[]
-	database_schema: string
-	created_at: string
-	updated_at: string
-}
+import { OPENGIG_API_URL } from "../../shared/api"
+import { User, UserStory } from "./types"
 
 export class OgToolsService {
-	private readonly baseUrl = "https://tools-backend.dev.opengig.work/integrations"
-	private readonly apiKey: string
+	private static readonly baseUrl = OPENGIG_API_URL
 
-	constructor(apiKey: string) {
-		this.apiKey = apiKey
-	}
-
-	private get headers() {
-		return {
-			"x-api-key": this.apiKey,
-			"Content-Type": "application/json",
-		}
-	}
-
-	async fetchUserStories(projectName: string): Promise<UserStory[]> {
+	static async fetchUserStories(projectName: string, apiKey: string) {
 		try {
-			const response = await axios.get<UserStory[]>(`${this.baseUrl}/stories/${encodeURIComponent(projectName)}`, {
-				headers: this.headers,
-			})
+			const response = await axios.get<UserStory[]>(
+				`${this.baseUrl}/integrations/stories/${encodeURIComponent(projectName)}`,
+				{
+					headers: {
+						"x-api-key": apiKey,
+					},
+				},
+			)
 			return response.data
 		} catch (error) {
 			if (axios.isAxiosError(error)) {
@@ -55,17 +23,53 @@ export class OgToolsService {
 			throw error
 		}
 	}
-
-	async fetchTechnicalDesign(projectName: string): Promise<TechnicalDesign> {
+	static async getAccessTokenFromCode(code: string, state: string) {
 		try {
-			const response = await axios.get<TechnicalDesign>(
-				`${this.baseUrl}/technical-design/${encodeURIComponent(projectName)}`,
-				{ headers: this.headers },
-			)
+			const response = await axios.post<string>(`${this.baseUrl}/auth/token`, {
+				code,
+				state,
+			})
 			return response.data
 		} catch (error) {
 			if (axios.isAxiosError(error)) {
-				throw new Error(`Failed to fetch technical design: ${error.response?.data?.message || error.message}`)
+				throw new Error(`Failed to get access token: ${error.response?.data?.message || error.message}`)
+			}
+			throw error
+		}
+	}
+	static async getCurrentUser(accessToken: string) {
+		try {
+			const response = await axios.get(`${this.baseUrl}/auth/me`, {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			})
+			if (!response.data?.data.user) {
+				throw new Error("User data not found.")
+			}
+			return {
+				email: response.data.data.user.email,
+				displayName: response.data.data.user.first_name + " " + response.data.data.user.last_name,
+				photoURL: response.data.data.user.avatar_url,
+			} as User
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				throw new Error(`Failed to fetch user: ${error.response?.data?.message || error.message}`)
+			}
+			throw error
+		}
+	}
+	static async getProjects(accessToken: string) {
+		try {
+			const response = await axios.get(`${this.baseUrl}/projects`, {
+				headers: {
+					Authorization: `Bearer ${accessToken}`,
+				},
+			})
+			return response.data.data
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				throw new Error(`Failed to fetch projects: ${error.response?.data?.message || error.message}`)
 			}
 			throw error
 		}
