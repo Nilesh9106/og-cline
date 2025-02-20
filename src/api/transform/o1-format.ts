@@ -243,6 +243,7 @@ const toolNames = [
 	"ask_followup_question",
 	"attempt_completion",
 	"fetch_user_stories",
+	"fetch_integrations_docs",
 	"fetch_figma_design",
 ]
 
@@ -342,8 +343,10 @@ function validateToolInput(toolName: string, tool_input: Record<string, string>)
 			return "question" in tool_input
 		case "attempt_completion":
 			return "result" in tool_input
+		case "fetch_integrations_docs":
+			return "integration_name" in tool_input
 		case "fetch_user_stories":
-			return "project_name" in tool_input
+			return true
 		case "fetch_figma_design":
 			return "file_url" in tool_input
 		default:

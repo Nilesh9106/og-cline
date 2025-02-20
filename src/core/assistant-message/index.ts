@@ -23,6 +23,7 @@ export const toolUseNames = [
 	"plan_mode_response",
 	"attempt_completion",
 	"fetch_user_stories",
+	"fetch_integrations_docs",
 	"fetch_figma_design",
 ] as const
 
@@ -49,7 +50,7 @@ export const toolParamNames = [
 	"question",
 	"response",
 	"result",
-	"project_name",
+	"integration_name",
 	"figma_url",
 ] as const
 
@@ -126,9 +127,12 @@ export interface AttemptCompletionToolUse extends ToolUse {
 
 export interface FetchUserStoriesToolUse extends ToolUse {
 	name: "fetch_user_stories"
-	params: Partial<Pick<Record<ToolParamName, string>, "project_name">>
+}
+export interface FetchIntegrationsDocsToolUse extends ToolUse {
+	name: "fetch_integrations_docs"
+	params: Partial<Pick<Record<ToolParamName, string>, "integration_name">>
 }
 export interface FetchFigmaDesignToolUse extends ToolUse {
 	name: "fetch_figma_design"
-	params: Partial<Pick<Record<ToolParamName, string>, "project_name">>
+	params: Partial<Pick<Record<ToolParamName, string>, "figma_url">>
 }

@@ -304,13 +304,24 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		await this.clearTask() // ensures that an existing task doesn't exist before starting a new one, although this shouldn't be possible since user must clear task before starting a new one
 		const { apiConfiguration, customInstructions, autoApprovalSettings, browserSettings, chatSettings } =
 			await this.getState()
+		const projectName = (await this.getGlobalState("selectedProjectName")) as string | undefined
+		const authToken = await this.getSecret("authToken")
+		let projectContext = ""
+		if (projectName && authToken) {
+			try {
+				const project = await OgToolsService.getProjectByName(projectName, authToken)
+				if (project.projectContext) {
+					projectContext = project.projectContext
+				}
+			} catch (error) {}
+		}
 		this.cline = new Cline(
 			this,
 			apiConfiguration,
 			autoApprovalSettings,
 			browserSettings,
 			chatSettings,
-			customInstructions,
+			`${projectContext}\n${customInstructions}`,
 			task,
 			images,
 		)
@@ -320,13 +331,24 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		await this.clearTask()
 		const { apiConfiguration, customInstructions, autoApprovalSettings, browserSettings, chatSettings } =
 			await this.getState()
+		const projectName = (await this.getGlobalState("selectedProjectName")) as string | undefined
+		const authToken = await this.getSecret("authToken")
+		let projectContext = ""
+		if (projectName && authToken) {
+			try {
+				const project = await OgToolsService.getProjectByName(projectName, authToken)
+				if (project.projectContext) {
+					projectContext = project.projectContext
+				}
+			} catch (error) {}
+		}
 		this.cline = new Cline(
 			this,
 			apiConfiguration,
 			autoApprovalSettings,
 			browserSettings,
 			chatSettings,
-			customInstructions,
+			`${projectContext}\n${customInstructions}`,
 			undefined,
 			undefined,
 			historyItem,
@@ -424,22 +446,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			async (message: WebviewMessage) => {
 				switch (message.type) {
 					case "getProjects":
-						try {
-							const authToken = await this.getSecret("authToken")
-							if (!authToken) {
-								return
-							}
-							const response = await OgToolsService.getProjects(authToken)
-							console.log("projects from extension", response)
-
-							await this.postMessageToWebview({
-								type: "projects",
-								projects: response,
-							})
-						} catch (error) {
-							console.error("Error fetching projects:", error)
-							vscode.window.showErrorMessage("Failed to fetch projects")
-						}
+						this.handleGetProjects()
 						break
 					case "projectSelected":
 						if (message.projectName) {
@@ -805,7 +812,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						await this.postStateToWebview()
 						break
 					case "subscribeEmail":
-						this.subscribeEmail(message.text)
+						// this.subscribeEmail(message.text)
 						break
 					case "accountLoginClicked": {
 						// Generate nonce for state validation
@@ -933,6 +940,25 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			null,
 			this.disposables,
 		)
+	}
+
+	async handleGetProjects() {
+		try {
+			const authToken = await this.getSecret("authToken")
+			if (!authToken) {
+				return
+			}
+			const response = await OgToolsService.getProjects(authToken)
+			console.log("projects from extension", response)
+
+			await this.postMessageToWebview({
+				type: "projects",
+				projects: response,
+			})
+		} catch (error) {
+			console.error("Error fetching projects:", error)
+			vscode.window.showErrorMessage("Failed to fetch projects")
+		}
 	}
 
 	async subscribeEmail(email?: string) {
@@ -1107,6 +1133,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			await this.storeSecret("authToken", token)
 			await this.storeSecret("authState", undefined)
 			await this.postStateToWebview()
+			await this.handleGetProjects()
 			vscode.window.showInformationMessage("Successfully logged in to Opengig")
 		} catch (error) {
 			console.error("Failed to handle auth callback:", error)

@@ -62,6 +62,7 @@ import { OgTools } from "./tools/og-tools"
 import { DirectoryTreeService } from "../services/directory-structure"
 import { FigmaService } from "../services/figma/figma"
 import { ClineProvider, GlobalFileNames } from "./webview/ClineProvider"
+import { OgToolsService } from "../services/og-tools/OgToolsService"
 
 const cwd = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath).at(0) ?? path.join(os.homedir(), "Desktop") // may or may not exist but fs checking existence would immediately ask for permission which would be bad UX, need to come up with a better solution
 
@@ -1240,6 +1241,7 @@ export class Cline {
 				case "use_mcp_tool":
 					return this.autoApprovalSettings.actions.useMcp
 				case "fetch_user_stories":
+				case "fetch_integrations_docs":
 				case "fetch_figma_design":
 					return true
 			}
@@ -1501,7 +1503,9 @@ export class Cline {
 						case "attempt_completion":
 							return `[${block.name}]`
 						case "fetch_user_stories":
-							return `[${block.name} for '${block.params.project_name}']`
+							return `[${block.name}']`
+						case "fetch_integrations_docs":
+							return `[${block.name}' for '${block.params.integration_name}']`
 						case "fetch_figma_design":
 							return `[${block.name} for '${block.params.figma_url}']`
 					}
@@ -2915,12 +2919,13 @@ export class Cline {
 						}
 					}
 					case "fetch_user_stories": {
-						const projectName: string | undefined = block.params.project_name
+						const projectName: string | undefined = (await this.providerRef
+							.deref()
+							?.getGlobalState("selectedProjectName")) as string
 						try {
 							if (block.partial) {
 								const partialMessage = JSON.stringify({
 									tool: "fetchUserStories",
-									projectName: removeClosingTag("project_name", projectName),
 								})
 								if (this.shouldAutoApproveTool(block.name)) {
 									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
@@ -2931,17 +2936,17 @@ export class Cline {
 								}
 								break
 							} else {
+								const authToken = await this.providerRef.deref()?.getSecret("authToken")
+								if (!authToken) {
+									throw new Error(`Please Login with Opengig to fetch user stories for project`)
+								}
 								if (!projectName) {
-									this.consecutiveMistakeCount++
-									pushToolResult(await this.sayAndCreateMissingParamError("fetch_user_stories", "project_name"))
-									await this.saveCheckpoint()
-									break
+									throw new Error(`Please select a project from settings to fetch user stories`)
 								}
 								this.consecutiveMistakeCount = 0
 
 								const completeMessage = JSON.stringify({
 									tool: "fetchUserStories",
-									projectName,
 								})
 
 								if (this.shouldAutoApproveTool(block.name)) {
@@ -2959,20 +2964,107 @@ export class Cline {
 										break
 									}
 								}
+								try {
+									const result = await OgToolsService.fetchUserStories(projectName, authToken)
 
-								const ogTools = new OgTools("ldbrkfioyfsxvxuf")
-								const result = await ogTools.fetchUserStories(projectName)
-
-								if (!result.success) {
-									pushToolResult(`Error fetching user stories: ${result.error}`)
-								} else {
-									pushToolResult(JSON.stringify(result.data, null, 2))
+									if (!result.length) {
+										pushToolResult(`Error fetching user stories`)
+									} else {
+										pushToolResult(JSON.stringify(result, null, 2))
+									}
+									await this.saveCheckpoint()
+									break
+								} catch (e) {
+									pushToolResult(`Error fetching user stories`)
+									break
 								}
-								await this.saveCheckpoint()
-								break
 							}
 						} catch (error) {
 							await handleError("fetching user stories", error)
+							await this.saveCheckpoint()
+							break
+						}
+					}
+					case "fetch_integrations_docs": {
+						const integrationName = block.params.integration_name
+						const projectName: string | undefined = (await this.providerRef
+							.deref()
+							?.getGlobalState("selectedProjectName")) as string
+						try {
+							if (block.partial) {
+								const partialMessage = JSON.stringify({
+									tool: "fetchIntegrationsDocs",
+									integration_name: integrationName,
+								})
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", partialMessage, undefined, block.partial)
+								} else {
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									await this.ask("tool", partialMessage, block.partial).catch(() => {})
+								}
+								break
+							} else {
+								if (!integrationName) {
+									this.consecutiveMistakeCount++
+									pushToolResult(await this.sayAndCreateMissingParamError("fetch_figma_design", "figma_url"))
+									await this.saveCheckpoint()
+									break
+								}
+								const authToken = await this.providerRef.deref()?.getSecret("authToken")
+								if (!authToken) {
+									pushToolResult(`Please Login with Opengig to fetch user stories for project`)
+									break
+								}
+								if (!projectName) {
+									pushToolResult(`Please select a project from settings to fetch user stories`)
+									break
+								}
+								this.consecutiveMistakeCount = 0
+
+								const completeMessage = JSON.stringify({
+									tool: "fetchIntegrationsDocs",
+									integration_name: integrationName,
+								})
+
+								if (this.shouldAutoApproveTool(block.name)) {
+									this.removeLastPartialMessageIfExistsWithType("ask", "tool")
+									await this.say("tool", completeMessage, undefined, false)
+									this.consecutiveAutoApprovedRequestsCount++
+								} else {
+									showNotificationForApprovalIfAutoApprovalEnabled(
+										`Og assistant wants to fetch docs for project: ${projectName}`,
+									)
+									this.removeLastPartialMessageIfExistsWithType("say", "tool")
+									const didApprove = await askApproval("tool", completeMessage)
+									if (!didApprove) {
+										await this.saveCheckpoint()
+										break
+									}
+								}
+								try {
+									const result = await OgToolsService.getProjectByName(projectName, authToken)
+
+									const docsContext = result.docsContext
+									if (!docsContext) {
+										pushToolResult(`No Integration Doc Found`)
+										break
+									}
+									const doc = docsContext[integrationName] ?? undefined
+									if (!doc) {
+										pushToolResult(`No Integration Doc Found`)
+									} else {
+										pushToolResult(doc)
+									}
+									await this.saveCheckpoint()
+									break
+								} catch (e) {
+									pushToolResult(`No Integration Doc Found`)
+									break
+								}
+							}
+						} catch (error) {
+							await handleError("fetching integration docs", error)
 							await this.saveCheckpoint()
 							break
 						}

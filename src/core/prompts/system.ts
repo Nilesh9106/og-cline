@@ -131,15 +131,22 @@ Usage:
 </list_files>
 
 ## fetch_user_stories
-Description: Request to fetch user stories for a specific project. This tool retrieves all user stories including their titles, descriptions, acceptance criteria, status, and priority.
-If project name is not provided then fetch from .ogrules(if exists) or tell user to provide project name.
+Description: Request to fetch user stories for a specific project. This tool retrieves all user stories including their titles, descriptions, acceptance criteria, status, and prompts.
 if user stories not found or gives error then tell user that user stories not found.
-Parameters:
-- project_name: (required) The name of the project to fetch user stories for
+After you get user stories, always ask user that on which user story you should start working
 Usage:
 <fetch_user_stories>
-<project_name>Project name here</project_name>
 </fetch_user_stories>
+## fetch_integrations_docs
+Description: Request to fetch docs for some specific integration service like stripe, openai, Razorpay etc. This tool retrieves doc in markdown format including all details of that integration.
+if docs not found or start working on that integration directly.
+After you get docs, use that doc just for reference to implement that integration.
+Currently, this tool supports "Stripe" only.
+whenever user ask something that is related to any integration supported by this tool, then only use this tool to get docs of that integration.
+Usage:
+<fetch_integrations_docs>
+<integration_name>Integration name here (should be exactly match available integrations)</integration_name>
+</fetch_integrations_docs>
 ## fetch_figma_design
 Description: Request to fetch figma design details such as whole structure of file and images. This tool retrieves all details of figma design and one image showcasing output of that figma design.
 If figma_url is given, ask user to provide it.
@@ -506,6 +513,8 @@ export function addUserInstructions(
 USER'S CUSTOM INSTRUCTIONS
 
 The following additional instructions are provided by the user, and should be followed to the best of your ability without interfering with the TOOL USE guidelines.
-STRICTLY, Before attempt_completion tool use, verify if a testing environment is configured, If yes, then always use the ask_followup_question tool to ask the user for test creation before attempt_completion tool use. On confirmation, plan and generate production-ready unit tests tailored to the modifications. Additionally, if an end-to-end testing environment is available in codebase, construct corresponding end-to-end tests where applicable.then run the tests and verify the results. If tests fail, then fix the issues and re-run the tests. If tests pass, then proceed with the attempt_completion tool use. If no testing environment is available, then proceed with the attempt_completion tool use directly.Proceed with testing if and only if user confirm to write test, always use ask_followup_question tool to confirm with user.
+STRICTLY, Before attempt_completion tool use, verify if a testing environment is configured, If yes, then always use the "ask_followup_question" tool to ask the user for test creation before attempt_completion tool use. On confirmation, plan and generate production-ready unit tests tailored to the modifications. Additionally, if an end-to-end testing environment is available in codebase, construct corresponding end-to-end tests where applicable.then run the tests and verify the results. If tests fail, then fix the issues and re-run the tests. If tests pass, then proceed with the attempt_completion tool use. If no testing environment is available, then proceed with the attempt_completion tool use directly.Proceed with testing if and only if user confirm to write test, always use ask_followup_question tool to confirm with user.
+STRICTLY, Dont directly start writing tests, first ask user if they want to write tests, if yes then only write tests, if no then proceed with the attempt_completion without writing tests.
+Make sure that you are asking about test creation at the end not the start
 ${customInstructions.trim()}`
 }

@@ -1,17 +1,17 @@
 import axios from "axios"
 import { OPENGIG_API_URL } from "../../shared/api"
-import { User, UserStory } from "./types"
+import { Project, User, UserStory } from "./types"
 
 export class OgToolsService {
 	private static readonly baseUrl = OPENGIG_API_URL
 
-	static async fetchUserStories(projectName: string, apiKey: string) {
+	static async fetchUserStories(projectName: string, accessToken: string) {
 		try {
 			const response = await axios.get<UserStory[]>(
-				`${this.baseUrl}/integrations/stories/${encodeURIComponent(projectName)}`,
+				`${this.baseUrl}/integrations/user-stories/${encodeURIComponent(projectName)}`,
 				{
 					headers: {
-						"x-api-key": apiKey,
+						Authorization: `Bearer ${accessToken}`,
 					},
 				},
 			)
@@ -19,6 +19,24 @@ export class OgToolsService {
 		} catch (error) {
 			if (axios.isAxiosError(error)) {
 				throw new Error(`Failed to fetch user stories: ${error.response?.data?.message || error.message}`)
+			}
+			throw error
+		}
+	}
+	static async getProjectByName(projectName: string, accessToken: string) {
+		try {
+			const response = await axios.get<{ data: Project }>(
+				`${this.baseUrl}/projects/name/${encodeURIComponent(projectName)}`,
+				{
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+					},
+				},
+			)
+			return response.data.data
+		} catch (error) {
+			if (axios.isAxiosError(error)) {
+				throw new Error(`Failed to fetch project details: ${error.response?.data?.message || error.message}`)
 			}
 			throw error
 		}
